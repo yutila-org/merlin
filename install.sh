@@ -1,18 +1,12 @@
 #!/usr/bin/env bash
 set -e
 
-# Dependency Verification
-if ! command -v make &> /dev/null; then
-    echo -e "\033[1;31m[ERROR] 'make' is not installed.\033[0m"
-    exit 1
-fi
 if ! command -v git &> /dev/null; then
     echo -e "\033[1;31m[ERROR] 'git' is not installed.\033[0m"
     exit 1
 fi
 
 MERLIN_HOME="$HOME/.merlin"
-
 if [ -d "$MERLIN_HOME" ]; then
     echo -e "\033[1;36m[UPDATE] Updating existing Merlin installation in $MERLIN_HOME...\033[0m"
     cd "$MERLIN_HOME"
@@ -20,28 +14,33 @@ if [ -d "$MERLIN_HOME" ]; then
 else
     echo -e "\033[1;36m[INSTALL] Cloning Merlin to $MERLIN_HOME...\033[0m"
     git clone https://github.com/yutila-org/merlin.git "$MERLIN_HOME"
-    cd "$MERLIN_HOME"
 fi
 
-echo -e "\033[1;36m[BUILD] Compiling Merlin Engine...\033[0m"
-make
+mkdir -p "$MERLIN_HOME/bin"
+OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+ARCH=$(uname -m)
+if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; fi
+if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then ARCH="arm64"; fi
+
+echo -e "\033[1;36m[DOWNLOAD] Fetching system-specific binary for Merlin ($OS-$ARCH)...\033[0m"
+URL="https://github.com/yutila-org/merlin/releases/download/alpha/merlin-${OS}-${ARCH}"
+if [[ "$OS" == *"mingw"* || "$OS" == *"msys"* || "$OS" == *"cygwin"* ]]; then
+    URL="https://github.com/yutila-org/merlin/releases/download/alpha/merlin-windows-amd64.exe"
+    curl -sSL "$URL" -o "$MERLIN_HOME/bin/merlin.exe"
+    chmod +x "$MERLIN_HOME/bin/merlin.exe"
+else
+    curl -sSL "$URL" -o "$MERLIN_HOME/bin/merlin"
+    chmod +x "$MERLIN_HOME/bin/merlin"
+fi
 
 SHELL_PROFILE=""
-if [ -f "$HOME/.zshrc" ]; then
-    SHELL_PROFILE="$HOME/.zshrc"
-elif [ -f "$HOME/.bashrc" ]; then
-    SHELL_PROFILE="$HOME/.bashrc"
-fi
+if [ -f "$HOME/.zshrc" ]; then SHELL_PROFILE="$HOME/.zshrc"; elif [ -f "$HOME/.bashrc" ]; then SHELL_PROFILE="$HOME/.bashrc"; fi
 
 if [ -n "$SHELL_PROFILE" ]; then
-    if ! grep -q "$MERLIN_HOME/bin" "$SHELL_PROFILE"; then
+    if ! grep -q "MERLIN_HOME" "$SHELL_PROFILE"; then
         echo -e "\n# Merlin Build Engine" >> "$SHELL_PROFILE"
-        echo -e "export PATH=\"\$PATH:$MERLIN_HOME/bin\"" >> "$SHELL_PROFILE"
-        echo -e "\033[1;32m[SUCCESS] Added Merlin to $SHELL_PROFILE.\033[0m"
+        echo -e "export MERLIN_HOME=\"$MERLIN_HOME\"" >> "$SHELL_PROFILE"
+        echo -e "export PATH=\"\$MERLIN_HOME/bin:\$PATH\"" >> "$SHELL_PROFILE"
     fi
-else
-    echo -e "\033[1;33m[WARNING] Could not locate .bashrc or .zshrc. Please manually add $MERLIN_HOME/bin to your PATH.\033[0m"
 fi
-
-echo -e "\033[1;32m[SUCCESS] Merlin Engine successfully initialized!\033[0m"
-echo -e "Please restart your terminal or run \033[1;36msource $SHELL_PROFILE\033[0m to wield 'merlin'."
+echo -e "\033[1;32m[SUCCESS] Merlin Engine installed to $MERLIN_HOME!\033[0m"
