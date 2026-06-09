@@ -10,6 +10,7 @@
 
   [![D](https://img.shields.io/badge/D-B03931?style=for-the-badge&logo=d&logoColor=white)](https://dlang.org/)
   [![LDC](https://img.shields.io/badge/LDC-8A2BE2?style=for-the-badge&logo=llvm&logoColor=white)](https://github.com/ldc-developers/ldc)
+  [![Make](https://img.shields.io/badge/Make-A42E2B?style=for-the-badge&logo=gnu&logoColor=white)](https://www.gnu.org/software/make/)
   [![Apache-2.0](https://img.shields.io/badge/Apache_2.0-D22128?style=for-the-badge&logo=apache&logoColor=white)](https://www.apache.org/licenses/LICENSE-2.0)
 
 </div>
