@@ -8,17 +8,14 @@
    
   **A cross-platform build orchestrator and TUI for C projects.**
 
-  <br />
-  <br />
-
-  <a href="https://dlang.org/" target="_blank" style="text-decoration: none; color: inherit;">
-    <img src="https://cdn.simpleicons.org/d/B03931" alt="D" width="24" style="vertical-align: middle;" /> <span style="vertical-align: middle; margin-right: 15px; font-weight: bold;">D</span>
+  <a href="https://dlang.org/" target="_blank" style="text-decoration: none;">
+    <img src="https://img.shields.io/badge/D-B03931?style=for-the-badge&logo=d&logoColor=white" alt="D" />
   </a>
-  <a href="https://github.com/ldc-developers/ldc" target="_blank" style="text-decoration: none; color: inherit;">
-    <img src="https://cdn.simpleicons.org/llvm/8A2BE2" alt="LDC" width="24" style="vertical-align: middle;" /> <span style="vertical-align: middle; margin-right: 15px; font-weight: bold;">LDC</span>
+  <a href="https://github.com/ldc-developers/ldc" target="_blank" style="text-decoration: none;">
+    <img src="https://img.shields.io/badge/LDC-8A2BE2?style=for-the-badge&logo=llvm&logoColor=white" alt="LDC" />
   </a>
-  <a href="https://www.mozilla.org/en-US/MPL/2.0/" target="_blank" style="text-decoration: none; color: inherit;">
-    <img src="https://cdn.simpleicons.org/mozilla/FF0000" alt="MPL-2.0" width="24" style="vertical-align: middle;" /> <span style="vertical-align: middle; font-weight: bold;">MPL-2.0</span>
+  <a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank" style="text-decoration: none;">
+    <img src="https://img.shields.io/badge/Apache_2.0-D22128?style=for-the-badge&logo=apache&logoColor=white" alt="Apache-2.0" />
   </a>
 
 </div>
