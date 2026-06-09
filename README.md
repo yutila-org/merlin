@@ -8,15 +8,9 @@
    
   **A cross-platform build orchestrator and TUI for C projects.**
 
-  <a href="https://dlang.org/" target="_blank" style="text-decoration: none;">
-    <img src="https://img.shields.io/badge/D-B03931?style=for-the-badge&logo=d&logoColor=white" alt="D" />
-  </a>
-  <a href="https://github.com/ldc-developers/ldc" target="_blank" style="text-decoration: none;">
-    <img src="https://img.shields.io/badge/LDC-8A2BE2?style=for-the-badge&logo=llvm&logoColor=white" alt="LDC" />
-  </a>
-  <a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank" style="text-decoration: none;">
-    <img src="https://img.shields.io/badge/Apache_2.0-D22128?style=for-the-badge&logo=apache&logoColor=white" alt="Apache-2.0" />
-  </a>
+  [![D](https://img.shields.io/badge/D-B03931?style=for-the-badge&logo=d&logoColor=white)](https://dlang.org/)
+  [![LDC](https://img.shields.io/badge/LDC-8A2BE2?style=for-the-badge&logo=llvm&logoColor=white)](https://github.com/ldc-developers/ldc)
+  [![Apache-2.0](https://img.shields.io/badge/Apache_2.0-D22128?style=for-the-badge&logo=apache&logoColor=white)](https://www.apache.org/licenses/LICENSE-2.0)
 
 </div>
 
