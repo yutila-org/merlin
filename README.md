@@ -11,15 +11,16 @@
   [![D](https://img.shields.io/badge/D-B03931?style=for-the-badge&logo=d&logoColor=white)](https://dlang.org/)
   [![LDC](https://img.shields.io/badge/LDC-8A2BE2?style=for-the-badge&logo=llvm&logoColor=white)](https://github.com/ldc-developers/ldc)
   [![Make](https://img.shields.io/badge/Make-A42E2B?style=for-the-badge&logo=gnu&logoColor=white)](https://www.gnu.org/software/make/)
-  [![Apache-2.0](https://img.shields.io/badge/Apache_2.0-D22128?style=for-the-badge&logo=apache&logoColor=white)](https://www.apache.org/licenses/LICENSE-2.0)
+  [![Apache-2.0](https://img.shields.io/badge/Apache_2.0-FF8C00?style=for-the-badge&logo=apache&logoColor=white)](https://www.apache.org/licenses/LICENSE-2.0)
 
 </div>
 
 <br />
 
-## <img src="https://cdn.simpleicons.org/blueprint/137CBD" width="24" style="vertical-align: bottom;" /> Scope
-Merlin is a specialized, interactive build orchestrator designed explicitly to manage C projects like Camelot. It is written entirely in D to remain highly portable and to leverage native compilation performance without the heavyweight runtime requirements of Python or Node.js. It features an interactive TUI (Text User Interface), automatic cross-platform compilation logic, test suite interception, and dynamic path resolution.
+## <img src="https://cdn.simpleicons.org/blueprint/137CBD" width="24" style="vertical-align: bottom;" /> Scope & Benefits
+Merlin is a specialized, interactive build orchestrator designed explicitly to manage C and C++ projects. It is written entirely in D to remain highly portable and to leverage native compilation performance without the heavyweight runtime requirements of Python or Node.js.
 
+**Why use Merlin over Make or CMake?** Unlike traditional tools, Merlin provides a zero-configuration interactive TUI, automatic cross-platform compilation logic, test suite interception, and dynamic path resolution without requiring complex, manually maintained build scripts. While it is tailored primarily as the build engine for the Camelot framework, Merlin is fully capable of orchestrating general, standalone C and C++ projects.
 ## <img src="https://cdn.simpleicons.org/sentry/FB4226" width="24" style="vertical-align: bottom;" /> Guarantee Model
 *   **Compiler-Agnostic**: Dynamically adapts flag syntax for `ldc2`, `dmd`, and `gdc`.
 *   **Platform-Independent**: Manages Windows `.exe` suffixes, PE/ELF security flags, and standard compliance.
