@@ -135,7 +135,6 @@ jobs:
     name: Deploy Release Asset
     needs: [build, secret-scan]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
     steps:
@@ -155,6 +154,7 @@ jobs:
           tar -czvf merlin-linux-amd64.tar.gz bin/merlin
 
       - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: merlin-linux-amd64.tar.gz
