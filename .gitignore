@@ -26,3 +26,7 @@ Thumbs.db
 
 # Coverage
 *.lst
+
+# Install Scripts (bundled with binaries)
+install.sh
+install.ps1

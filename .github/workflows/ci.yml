@@ -1,0 +1,163 @@
+name: Merlin CI/CD
+
+on:
+  push:
+    branches: [ "main" ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install D Compiler
+        uses: dlang-community/setup-dlang@v1
+        with:
+          compiler: ldc-latest
+      - name: Compile Code
+        run: make
+
+      - name: Send Telemetry Payload
+        env:
+          RELAY_TOKEN: ${{ secrets.WAZUH_RELAY_TOKEN }}
+        run: |
+          curl -X POST "https://telemetry.yutila.com" \
+            -H "Authorization: Bearer $RELAY_TOKEN" \
+            -H "Content-Type: application/x-ndjson" \
+            -d '{"event": "ci_pipeline_success", "run_id": "${{ github.run_id }}", "repo": "${{ github.repository }}"}'
+
+  trivy:
+    name: SAST & File System Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Architecture
+        uses: actions/checkout@v4
+
+      - name: Execute Trivy Scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          format: 'json'
+          output: 'trivy-results.json'
+          exit-code: '1'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Normalize Payload
+        if: always()
+        run: jq -c '.Results[]? | .Vulnerabilities[]?' trivy-results.json > payload.ndjson || touch payload.ndjson
+
+      - name: Ingest Telemetry
+        if: always()
+        uses: yutila-org/WAZUH-TELEMETRY@main
+        with:
+          scan-file: 'payload.ndjson'
+          relay-token: ${{ secrets.WAZUH_RELAY_TOKEN }}
+
+  secret-scan:
+    name: Secret Entropy Detection
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Architecture
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Execute Gitleaks
+        uses: gitleaks/gitleaks-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_REPORT_FORMAT: json
+          GITLEAKS_REPORT_FILE: gitleaks-results.json
+
+      - name: Normalize Payload
+        if: always()
+        run: jq -c '.[]?' gitleaks-results.json > payload.ndjson || touch payload.ndjson
+
+      - name: Ingest Telemetry
+        if: always()
+        uses: yutila-org/WAZUH-TELEMETRY@main
+        with:
+          scan-file: 'payload.ndjson'
+          relay-token: ${{ secrets.WAZUH_RELAY_TOKEN }}
+
+  sbom:
+    name: Software Bill of Materials
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Architecture
+        uses: actions/checkout@v4
+
+      - name: Execute Syft
+        uses: anchore/sbom-action@v0
+        with:
+          format: 'spdx-json'
+          output-file: 'sbom-results.json'
+
+      - name: Normalize Payload
+        if: always()
+        run: jq -c '.packages[]?' sbom-results.json > payload.ndjson || touch payload.ndjson
+
+      - name: Ingest Telemetry
+        if: always()
+        uses: yutila-org/WAZUH-TELEMETRY@main
+        with:
+          scan-file: 'payload.ndjson'
+          relay-token: ${{ secrets.WAZUH_RELAY_TOKEN }}
+
+  scorecard:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      id-token: write
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: OpenSSF Scorecard analysis
+        uses: ossf/scorecard-action@v2.3.1
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+
+  deps-dev:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate dependencies using deps.dev / OSV
+        uses: google/osv-scanner-action/osv-scanner-action@v1.8.2
+
+  deploy:
+    name: Deploy Release Asset
+    needs: [build, secret-scan]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install D Compiler
+        uses: dlang-community/setup-dlang@v1
+        with:
+          compiler: ldc-latest
+
+      - name: Build Release Binary
+        run: |
+          make all RELEASE=1
+
+      - name: Package Release Assets
+        run: |
+          tar -czvf merlin-linux-amd64.tar.gz bin/merlin
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: merlin-linux-amd64.tar.gz
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
