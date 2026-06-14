@@ -22,10 +22,19 @@ ARCH=$(uname -m)
 if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; fi
 if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then ARCH="arm64"; fi
 
-echo -e "\033[1;36m[DOWNLOAD] Fetching system-specific binary for Merlin ($OS-$ARCH)...\033[0m"
-URL="https://github.com/yutila-org/merlin/releases/download/alpha/merlin-${OS}-${ARCH}"
+TAG=$(curl -s "https://api.github.com/repos/yutila-org/merlin/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+if [ -z "$TAG" ]; then
+    TAG=$(curl -s "https://api.github.com/repos/yutila-org/merlin/releases" | grep '"tag_name":' | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/')
+fi
+if [ -z "$TAG" ]; then
+    echo -e "\033[1;31m[ERROR] Could not determine the latest Merlin release.\033[0m"
+    exit 1
+fi
+
+echo -e "\033[1;36m[DOWNLOAD] Fetching system-specific binary for Merlin ($OS-$ARCH) from release $TAG...\033[0m"
+URL="https://github.com/yutila-org/merlin/releases/download/$TAG/merlin-${OS}-${ARCH}"
 if [[ "$OS" == *"mingw"* || "$OS" == *"msys"* || "$OS" == *"cygwin"* ]]; then
-    URL="https://github.com/yutila-org/merlin/releases/download/alpha/merlin-windows-amd64.exe"
+    URL="https://github.com/yutila-org/merlin/releases/download/$TAG/merlin-windows-amd64.exe"
     curl -sSL "$URL" -o "$MERLIN_HOME/bin/merlin.exe"
     chmod +x "$MERLIN_HOME/bin/merlin.exe"
 else
