@@ -63,7 +63,7 @@ $script = Invoke-WebRequest -Uri "https://github.com/yutila-org/merlin/releases/
 Invoke-Command -ScriptBlock ([Scriptblock]::Create($script.Content)) -ArgumentList "VERSION_NAME"
 ```
 
-## <img src="https://cdn.simpleicons.org/windowsterminal/4D4D4D" width="24" style="vertical-align: bottom;" /> Usage
+## <img src="https://cdn.simpleicons.org/bash/4EAA25" width="24" style="vertical-align: bottom;" /> Usage
 Once installed (or manually bootstrapped via `make`), invoke `merlin` in your project folder.
 *   `merlin init <project_name>` - Scaffolds a new C project with editor tasks.
 *   `merlin all` - Builds your target executable.
