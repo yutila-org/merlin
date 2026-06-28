@@ -1,5 +1,9 @@
 $ErrorActionPreference = "Stop"
 
+param (
+    [string]$Version = ""
+)
+
 if (-not (Get-Command "git" -ErrorAction SilentlyContinue)) {
     Write-Host "[ERROR] 'git' is not installed." -ForegroundColor Red
     exit 1
@@ -18,18 +22,23 @@ if (Test-Path $MerlinHome) {
 
 if (-not (Test-Path "$MerlinHome\bin")) { New-Item -ItemType Directory -Path "$MerlinHome\bin" | Out-Null }
 
-try {
-    $release = Invoke-RestMethod -Uri "https://api.github.com/repos/yutila-org/merlin/releases/latest" -ErrorAction Stop
-} catch {
-    $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/yutila-org/merlin/releases"
-    if ($releases.Count -gt 0) {
-        $release = $releases[0]
-    } else {
-        Write-Host "[ERROR] Could not determine the latest Merlin release." -ForegroundColor Red
-        exit 1
+if ($Version -ne "") {
+    $tag = $Version
+} else {
+    try {
+        $release = Invoke-RestMethod -Uri "https://api.github.com/repos/yutila-org/merlin/releases/latest" -ErrorAction Stop
+        $tag = $release.tag_name
+    } catch {
+        $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/yutila-org/merlin/releases"
+        if ($releases.Count -gt 0) {
+            $tag = $releases[0].tag_name
+        } else {
+            Write-Host "[ERROR] Could not determine the latest Merlin release." -ForegroundColor Red
+            exit 1
+        }
     }
 }
-$tag = $release.tag_name
+
 
 Write-Host "[DOWNLOAD] Fetching system-specific binary for Merlin (windows-amd64) from release $tag..." -ForegroundColor Cyan
 $URL = "https://github.com/yutila-org/merlin/releases/download/$tag/merlin-windows-amd64.exe"

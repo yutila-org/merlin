@@ -22,10 +22,15 @@ ARCH=$(uname -m)
 if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; fi
 if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then ARCH="arm64"; fi
 
-TAG=$(curl -s "https://api.github.com/repos/yutila-org/merlin/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-if [ -z "$TAG" ]; then
-    TAG=$(curl -s "https://api.github.com/repos/yutila-org/merlin/releases" | grep '"tag_name":' | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/')
+if [ -n "$1" ]; then
+    TAG="$1"
+else
+    TAG=$(curl -s "https://api.github.com/repos/yutila-org/merlin/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+    if [ -z "$TAG" ]; then
+        TAG=$(curl -s "https://api.github.com/repos/yutila-org/merlin/releases" | grep '"tag_name":' | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/')
+    fi
 fi
+
 if [ -z "$TAG" ]; then
     echo -e "\033[1;31m[ERROR] Could not determine the latest Merlin release.\033[0m"
     exit 1

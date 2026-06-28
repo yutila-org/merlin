@@ -36,8 +36,36 @@ Merlin operates via an interactive dashboard or a traditional CLI model.
 | **Dashboard (`tui.d`)** | Renders a TUI dashboard displaying project metrics. |
 | **CLI (`app.d`)** | Routes arguments (`all`, `test`, `run`, `clean`, `init`) or launches the interactive prompt. |
 
+## <img src="https://cdn.simpleicons.org/gnometerminal/60FF60" width="24" style="vertical-align: bottom;" /> Installation
+The quickest way to get Merlin is via our automated install scripts. By default, they will pull the latest release.
+
+**Linux & macOS:**
+```bash
+curl -sSL https://github.com/yutila-org/merlin/releases/latest/download/install.sh | bash
+```
+
+**Windows (PowerShell):**
+```powershell
+iwr https://github.com/yutila-org/merlin/releases/latest/download/install.ps1 -useb | iex
+```
+
+### Installing a Specific Version
+To install a specific version (like `alpha-3`), pass the tag as an argument:
+
+**Linux & macOS:**
+```bash
+curl -sSL https://github.com/yutila-org/merlin/releases/latest/download/install.sh | bash -s -- alpha-3
+```
+
+**Windows (PowerShell):**
+```powershell
+$script = Invoke-WebRequest -Uri "https://github.com/yutila-org/merlin/releases/latest/download/install.ps1" -UseBasicParsing
+Invoke-Command -ScriptBlock ([Scriptblock]::Create($script.Content)) -ArgumentList "alpha-3"
+```
+
 ## <img src="https://cdn.simpleicons.org/gnometerminal/60FF60" width="24" style="vertical-align: bottom;" /> Usage
-Run `make` to bootstrap the binary, then invoke `merlin`.
+Once installed (or manually bootstrapped via `make`), invoke `merlin` in your project folder.
+*   `merlin init <project_name>` - Scaffolds a new C project with editor tasks.
 *   `merlin all` - Builds your target executable.
 *   `merlin test` - Orchestrates and compiles your tests.
 *   `merlin clean` - Purges the cache and objects.
