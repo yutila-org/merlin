@@ -50,17 +50,17 @@ iwr https://github.com/yutila-org/merlin/releases/latest/download/install.ps1 -u
 ```
 
 ### Installing a Specific Version
-To install a specific version (like `alpha-3`), pass the tag as an argument:
+To install a specific version, pass the tag as an argument (replace `VERSION_NAME` with the exact version name you want):
 
 **Linux & macOS:**
 ```bash
-curl -sSL https://github.com/yutila-org/merlin/releases/latest/download/install.sh | bash -s -- alpha-3
+curl -sSL https://github.com/yutila-org/merlin/releases/latest/download/install.sh | bash -s -- VERSION_NAME
 ```
 
 **Windows (PowerShell):**
 ```powershell
 $script = Invoke-WebRequest -Uri "https://github.com/yutila-org/merlin/releases/latest/download/install.ps1" -UseBasicParsing
-Invoke-Command -ScriptBlock ([Scriptblock]::Create($script.Content)) -ArgumentList "alpha-3"
+Invoke-Command -ScriptBlock ([Scriptblock]::Create($script.Content)) -ArgumentList "VERSION_NAME"
 ```
 
 ## <img src="https://cdn.simpleicons.org/gnometerminal/60FF60" width="24" style="vertical-align: bottom;" /> Usage
