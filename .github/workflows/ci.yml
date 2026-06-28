@@ -9,15 +9,69 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: merlin-linux-amd64
+          - os: macos-latest
+            artifact: merlin-darwin-arm64
+          - os: windows-latest
+            artifact: merlin-windows-amd64.exe
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+
       - name: Install D Compiler
         uses: dlang-community/setup-dlang@v1
         with:
           compiler: ldc-latest
+
       - name: Compile Code
         run: make
+
+      - name: Rename Binary (Unix)
+        if: runner.os != 'Windows'
+        run: mv bin/merlin bin/${{ matrix.artifact }}
+
+      - name: Rename Binary (Windows)
+        if: runner.os == 'Windows'
+        run: Rename-Item -Path bin\merlin.exe -NewName ${{ matrix.artifact }}
+
+      - name: Validate Binary Format (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          MAGIC=$(head -c 4 bin/${{ matrix.artifact }} | xxd -p)
+          if [ "$MAGIC" != "7f454c46" ]; then
+            echo "::error::Binary is not a valid ELF executable (magic: $MAGIC)"
+            exit 1
+          fi
+          file bin/${{ matrix.artifact }}
+
+      - name: Validate Binary Format (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          MAGIC=$(head -c 4 bin/${{ matrix.artifact }} | xxd -p)
+          if [ "$MAGIC" != "cffa edfe" ] && [ "$MAGIC" != "cefa edfe" ] && [ "$MAGIC" != "feedfacf" ] && [ "$MAGIC" != "feedface" ]; then
+            echo "::warning::Binary magic ($MAGIC) may not be standard Mach-O, verifying with file..."
+          fi
+          file bin/${{ matrix.artifact }}
+
+      - name: Validate Binary Format (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $bytes = [System.IO.File]::ReadAllBytes("bin\${{ matrix.artifact }}")
+          $magic = "{0:X2}{1:X2}" -f $bytes[0], $bytes[1]
+          if ($magic -ne "4D5A") {
+            Write-Error "Binary is not a valid PE executable (magic: $magic)"
+            exit 1
+          }
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: bin/${{ matrix.artifact }}
 
       - name: Send Telemetry Payload
         env:
@@ -26,7 +80,8 @@ jobs:
           curl -X POST "https://telemetry.yutila.com" \
             -H "Authorization: Bearer $RELAY_TOKEN" \
             -H "Content-Type: application/x-ndjson" \
-            -d '{"event": "ci_pipeline_success", "run_id": "${{ github.run_id }}", "repo": "${{ github.repository }}"}'
+            -d '{"event": "ci_pipeline_success", "run_id": "${{ github.run_id }}", "repo": "${{ github.repository }}", "platform": "${{ matrix.os }}"}'
+        shell: bash
 
   trivy:
     name: SAST & File System Scan
@@ -131,22 +186,34 @@ jobs:
       - name: Validate dependencies using deps.dev / OSV
         uses: google/osv-scanner-action/osv-scanner-action@v1.8.2
 
-  release-test:
-    name: Test Release Build
-    needs: [build, secret-scan]
+  release:
+    name: Publish Release
+    needs: [build, trivy, secret-scan]
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install D Compiler
-        uses: dlang-community/setup-dlang@v1
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
         with:
-          compiler: ldc-latest
+          path: release-assets/
 
-      - name: Build Release Binary
+      - name: Prepare Release Binaries
         run: |
-          make all RELEASE=1
+          mkdir -p dist/
+          for dir in release-assets/*/; do
+            cp "$dir"* dist/
+          done
+          chmod +x dist/merlin-linux-amd64 dist/merlin-darwin-arm64 || true
+          ls -la dist/
+          echo "--- Binary format validation ---"
+          file dist/* || true
 
-      - name: Package Release Assets
-        run: |
-          tar -czvf merlin-linux-amd64.tar.gz bin/merlin
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: dist/*

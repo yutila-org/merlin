@@ -40,6 +40,28 @@ if [[ "$OS" == *"mingw"* || "$OS" == *"msys"* || "$OS" == *"cygwin"* ]]; then
 else
     curl -sSL "$URL" -o "$MERLIN_HOME/bin/merlin"
     chmod +x "$MERLIN_HOME/bin/merlin"
+
+    # Validate the downloaded binary is the correct format for this platform
+    MAGIC=$(head -c 4 "$MERLIN_HOME/bin/merlin" | xxd -p 2>/dev/null || od -A n -t x1 -N 4 "$MERLIN_HOME/bin/merlin" | tr -d ' ')
+    if [ "$OS" = "linux" ]; then
+        if [ "$MAGIC" != "7f454c46" ]; then
+            echo -e "\033[1;31m[ERROR] Downloaded binary is not a valid ELF executable (magic: $MAGIC).\033[0m"
+            echo -e "\033[1;31m        The release may contain a binary built for the wrong platform.\033[0m"
+            echo -e "\033[1;33m[HINT]  Build from source instead: cd $MERLIN_HOME && make\033[0m"
+            echo -e "\033[1;33m        Requires a D compiler (ldc2, dmd, or gdc).\033[0m"
+            rm -f "$MERLIN_HOME/bin/merlin"
+            exit 1
+        fi
+    elif [ "$OS" = "darwin" ]; then
+        if [ "$MAGIC" != "cffa edfe" ] && [ "$MAGIC" != "cffaedfe" ] && [ "$MAGIC" != "feedfacf" ]; then
+            echo -e "\033[1;31m[ERROR] Downloaded binary is not a valid Mach-O executable (magic: $MAGIC).\033[0m"
+            echo -e "\033[1;31m        The release may contain a binary built for the wrong platform.\033[0m"
+            echo -e "\033[1;33m[HINT]  Build from source instead: cd $MERLIN_HOME && make\033[0m"
+            echo -e "\033[1;33m        Requires a D compiler (ldc2, dmd, or gdc).\033[0m"
+            rm -f "$MERLIN_HOME/bin/merlin"
+            exit 1
+        fi
+    fi
 fi
 
 SHELL_PROFILE=""

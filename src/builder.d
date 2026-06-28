@@ -76,11 +76,59 @@ void buildTarget(bool release, bool testTarget) {
         version(Posix) {
             cflags ~= ["-fsanitize=address,undefined"];
             ldflags ~= ["-fsanitize=address,undefined"];
-        }
-        // ASAN leak sanitizer is Posix-only typically
-        version(Posix) {
-            cflags ~= ["-fsanitize=leak"];
-            ldflags ~= ["-fsanitize=leak"];
+
+            // Leak sanitizer is only reliably supported on Linux x86_64
+            version(X86_64) {
+                version(linux) {
+                    cflags ~= ["-fsanitize=leak"];
+                    ldflags ~= ["-fsanitize=leak"];
+                }
+            }
+
+            // Detect compiler identity and configure the appropriate sanitizer runtime.
+            // Clang and GCC ship incompatible ASan runtimes — mixing them causes link
+            // failures or silent corruption at runtime.
+            bool isClang = false;
+            try {
+                auto ccIdent = executeShell(cc ~ " --version 2>&1");
+                if (ccIdent.status == 0 && ccIdent.output.toLower().canFind("clang")) {
+                    isClang = true;
+                }
+            } catch (Exception e) {}
+
+            if (isClang) {
+                // Clang: prefer its own compiler-rt sanitizer runtime to avoid
+                // accidentally linking against a system-installed GCC libasan.
+                cflags ~= ["-static-libsan"];
+                ldflags ~= ["-static-libsan"];
+            }
+
+            // Diagnostic: warn if multiple libasan versions coexist on the system.
+            // This is a common source of "cannot find -lasan" or silent ABI mismatches.
+            try {
+                auto asanProbe = executeShell("ls /usr/lib64/libasan.so.* /usr/lib/libasan.so.* 2>/dev/null | sort -V");
+                if (asanProbe.status == 0) {
+                    import std.array : split;
+                    auto asanLibs = asanProbe.output.strip().split("\n");
+                    // Filter empty entries
+                    string[] foundLibs;
+                    foreach (lib; asanLibs) {
+                        string trimmed = lib.strip();
+                        if (trimmed.length > 0) foundLibs ~= trimmed;
+                    }
+
+                    if (foundLibs.length > 1) {
+                        writefln("\033[1;33m[DIAGNOSTIC]\033[0m Multiple AddressSanitizer runtimes detected on this system:");
+                        foreach (lib; foundLibs) {
+                            writefln("              %s", lib);
+                        }
+                        writefln("             \033[33mThis can cause linker conflicts or runtime ABI mismatches.\033[0m");
+                        writefln("             \033[33mMerlin will use the compiler's bundled runtime (%s).\033[0m",
+                            isClang ? "compiler-rt via -static-libsan" : "GCC libasan");
+                        writefln("             \033[33mTo resolve: remove legacy ASan packages (e.g., `dnf remove compat-libasan1`).\033[0m\n");
+                    }
+                }
+            } catch (Exception e) {}
         }
     }
 
@@ -299,7 +347,8 @@ void initProject(string targetPath, string projectName) {
         "*.o\n" ~
         "*.out\n" ~
         "*.exe\n" ~
-        ".vscode/\n";
+        ".vscode/\n" ~
+        ".zed/\n";
     std.file.write(buildPath(targetPath, ".gitignore"), gitignore);
     
     string camelotHome = environment.get("CAMELOT_HOME", "");
@@ -314,6 +363,106 @@ void initProject(string targetPath, string projectName) {
         compileFlags ~= "-I" ~ buildPath(camelotHome, "include") ~ "\n";
     }
     std.file.write(buildPath(targetPath, "compile_flags.txt"), compileFlags);
-    
+
+    // VS Code tasks — Ctrl+Shift+B to build, command palette for test/run/clean
+    mkdirRecurse(buildPath(targetPath, ".vscode"));
+    string vscodeTasks =
+        "{\n" ~
+        "    \"version\": \"2.0.0\",\n" ~
+        "    \"tasks\": [\n" ~
+        "        {\n" ~
+        "            \"label\": \"Build\",\n" ~
+        "            \"type\": \"shell\",\n" ~
+        "            \"command\": \"make all\",\n" ~
+        "            \"group\": { \"kind\": \"build\", \"isDefault\": true },\n" ~
+        "            \"problemMatcher\": \"$gcc\",\n" ~
+        "            \"presentation\": { \"reveal\": \"always\", \"panel\": \"shared\", \"clear\": true },\n" ~
+        "            \"detail\": \"Compile via Merlin (Debug)\"\n" ~
+        "        },\n" ~
+        "        {\n" ~
+        "            \"label\": \"Build (Release)\",\n" ~
+        "            \"type\": \"shell\",\n" ~
+        "            \"command\": \"make all RELEASE=1\",\n" ~
+        "            \"group\": \"build\",\n" ~
+        "            \"problemMatcher\": \"$gcc\",\n" ~
+        "            \"presentation\": { \"reveal\": \"always\", \"panel\": \"shared\", \"clear\": true },\n" ~
+        "            \"detail\": \"Compile via Merlin (Release, hardened)\"\n" ~
+        "        },\n" ~
+        "        {\n" ~
+        "            \"label\": \"Test\",\n" ~
+        "            \"type\": \"shell\",\n" ~
+        "            \"command\": \"make test\",\n" ~
+        "            \"group\": { \"kind\": \"test\", \"isDefault\": true },\n" ~
+        "            \"problemMatcher\": \"$gcc\",\n" ~
+        "            \"presentation\": { \"reveal\": \"always\", \"panel\": \"shared\", \"clear\": true },\n" ~
+        "            \"detail\": \"Build and run the sanitized test suite (ASan/UBSan)\"\n" ~
+        "        },\n" ~
+        "        {\n" ~
+        "            \"label\": \"Run\",\n" ~
+        "            \"type\": \"shell\",\n" ~
+        "            \"command\": \"make run\",\n" ~
+        "            \"group\": \"none\",\n" ~
+        "            \"problemMatcher\": [],\n" ~
+        "            \"presentation\": { \"reveal\": \"always\", \"panel\": \"shared\", \"clear\": true },\n" ~
+        "            \"detail\": \"Build and launch the target executable\"\n" ~
+        "        },\n" ~
+        "        {\n" ~
+        "            \"label\": \"Clean\",\n" ~
+        "            \"type\": \"shell\",\n" ~
+        "            \"command\": \"make clean\",\n" ~
+        "            \"group\": \"none\",\n" ~
+        "            \"problemMatcher\": [],\n" ~
+        "            \"presentation\": { \"reveal\": \"always\", \"panel\": \"shared\", \"clear\": true },\n" ~
+        "            \"detail\": \"Remove all build artifacts (bin/, obj/)\"\n" ~
+        "        }\n" ~
+        "    ]\n" ~
+        "}\n";
+    std.file.write(buildPath(targetPath, ".vscode", "tasks.json"), vscodeTasks);
+
+    // Zed tasks — accessible via the Zed command palette
+    mkdirRecurse(buildPath(targetPath, ".zed"));
+    string zedTasks =
+        "[\n" ~
+        "    {\n" ~
+        "        \"label\": \"Build\",\n" ~
+        "        \"command\": \"make all\",\n" ~
+        "        \"use_new_terminal\": false,\n" ~
+        "        \"allow_concurrent_runs\": false,\n" ~
+        "        \"reveal\": \"always\",\n" ~
+        "        \"tags\": [\"build\"]\n" ~
+        "    },\n" ~
+        "    {\n" ~
+        "        \"label\": \"Build (Release)\",\n" ~
+        "        \"command\": \"make all RELEASE=1\",\n" ~
+        "        \"use_new_terminal\": false,\n" ~
+        "        \"allow_concurrent_runs\": false,\n" ~
+        "        \"reveal\": \"always\",\n" ~
+        "        \"tags\": [\"build\"]\n" ~
+        "    },\n" ~
+        "    {\n" ~
+        "        \"label\": \"Test\",\n" ~
+        "        \"command\": \"make test\",\n" ~
+        "        \"use_new_terminal\": false,\n" ~
+        "        \"allow_concurrent_runs\": false,\n" ~
+        "        \"reveal\": \"always\",\n" ~
+        "        \"tags\": [\"test\"]\n" ~
+        "    },\n" ~
+        "    {\n" ~
+        "        \"label\": \"Run\",\n" ~
+        "        \"command\": \"make run\",\n" ~
+        "        \"use_new_terminal\": false,\n" ~
+        "        \"allow_concurrent_runs\": false,\n" ~
+        "        \"reveal\": \"always\"\n" ~
+        "    },\n" ~
+        "    {\n" ~
+        "        \"label\": \"Clean\",\n" ~
+        "        \"command\": \"make clean\",\n" ~
+        "        \"use_new_terminal\": false,\n" ~
+        "        \"allow_concurrent_runs\": false,\n" ~
+        "        \"reveal\": \"always\"\n" ~
+        "    }\n" ~
+        "]\n";
+    std.file.write(buildPath(targetPath, ".zed", "tasks.json"), zedTasks);
+
     writefln("\033[1;32m[INIT] Created project '%s' at '%s'\033[0m", projectName, targetPath.length > 0 && targetPath != "." ? targetPath : getcwd());
 }
