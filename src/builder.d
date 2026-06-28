@@ -364,105 +364,128 @@ void initProject(string targetPath, string projectName) {
     }
     std.file.write(buildPath(targetPath, "compile_flags.txt"), compileFlags);
 
-    // VS Code tasks — Ctrl+Shift+B to build, command palette for test/run/clean
-    mkdirRecurse(buildPath(targetPath, ".vscode"));
-    string vscodeTasks =
-        "{\n" ~
-        "    \"version\": \"2.0.0\",\n" ~
-        "    \"tasks\": [\n" ~
-        "        {\n" ~
-        "            \"label\": \"Build\",\n" ~
-        "            \"type\": \"shell\",\n" ~
-        "            \"command\": \"make all\",\n" ~
-        "            \"group\": { \"kind\": \"build\", \"isDefault\": true },\n" ~
-        "            \"problemMatcher\": \"$gcc\",\n" ~
-        "            \"presentation\": { \"reveal\": \"always\", \"panel\": \"shared\", \"clear\": true },\n" ~
-        "            \"detail\": \"Compile via Merlin (Debug)\"\n" ~
-        "        },\n" ~
-        "        {\n" ~
-        "            \"label\": \"Build (Release)\",\n" ~
-        "            \"type\": \"shell\",\n" ~
-        "            \"command\": \"make all RELEASE=1\",\n" ~
-        "            \"group\": \"build\",\n" ~
-        "            \"problemMatcher\": \"$gcc\",\n" ~
-        "            \"presentation\": { \"reveal\": \"always\", \"panel\": \"shared\", \"clear\": true },\n" ~
-        "            \"detail\": \"Compile via Merlin (Release, hardened)\"\n" ~
-        "        },\n" ~
-        "        {\n" ~
-        "            \"label\": \"Test\",\n" ~
-        "            \"type\": \"shell\",\n" ~
-        "            \"command\": \"make test\",\n" ~
-        "            \"group\": { \"kind\": \"test\", \"isDefault\": true },\n" ~
-        "            \"problemMatcher\": \"$gcc\",\n" ~
-        "            \"presentation\": { \"reveal\": \"always\", \"panel\": \"shared\", \"clear\": true },\n" ~
-        "            \"detail\": \"Build and run the sanitized test suite (ASan/UBSan)\"\n" ~
-        "        },\n" ~
-        "        {\n" ~
-        "            \"label\": \"Run\",\n" ~
-        "            \"type\": \"shell\",\n" ~
-        "            \"command\": \"make run\",\n" ~
-        "            \"group\": \"none\",\n" ~
-        "            \"problemMatcher\": [],\n" ~
-        "            \"presentation\": { \"reveal\": \"always\", \"panel\": \"shared\", \"clear\": true },\n" ~
-        "            \"detail\": \"Build and launch the target executable\"\n" ~
-        "        },\n" ~
-        "        {\n" ~
-        "            \"label\": \"Clean\",\n" ~
-        "            \"type\": \"shell\",\n" ~
-        "            \"command\": \"make clean\",\n" ~
-        "            \"group\": \"none\",\n" ~
-        "            \"problemMatcher\": [],\n" ~
-        "            \"presentation\": { \"reveal\": \"always\", \"panel\": \"shared\", \"clear\": true },\n" ~
-        "            \"detail\": \"Remove all build artifacts (bin/, obj/)\"\n" ~
-        "        }\n" ~
-        "    ]\n" ~
-        "}\n";
-    std.file.write(buildPath(targetPath, ".vscode", "tasks.json"), vscodeTasks);
+    // Detect which editor is installed and scaffold the appropriate task config.
+    // Only one is created to avoid redundant files.
+    bool hasVSCode = false;
+    bool hasZed = false;
+    try {
+        version(Windows) {
+            enum vsCmd = "where code 2>NUL";
+            enum zedCmd = "where zed 2>NUL";
+        } else {
+            enum vsCmd = "command -v code 2>/dev/null";
+            enum zedCmd = "command -v zed 2>/dev/null";
+        }
+        auto vsProbe = executeShell(vsCmd);
+        auto zedProbe = executeShell(zedCmd);
+        hasVSCode = vsProbe.status == 0;
+        hasZed = zedProbe.status == 0;
+    } catch (Exception e) {}
 
-    // Zed tasks — accessible via the Zed command palette
-    mkdirRecurse(buildPath(targetPath, ".zed"));
-    string zedTasks =
-        "[\n" ~
-        "    {\n" ~
-        "        \"label\": \"Build\",\n" ~
-        "        \"command\": \"make all\",\n" ~
-        "        \"use_new_terminal\": false,\n" ~
-        "        \"allow_concurrent_runs\": false,\n" ~
-        "        \"reveal\": \"always\",\n" ~
-        "        \"tags\": [\"build\"]\n" ~
-        "    },\n" ~
-        "    {\n" ~
-        "        \"label\": \"Build (Release)\",\n" ~
-        "        \"command\": \"make all RELEASE=1\",\n" ~
-        "        \"use_new_terminal\": false,\n" ~
-        "        \"allow_concurrent_runs\": false,\n" ~
-        "        \"reveal\": \"always\",\n" ~
-        "        \"tags\": [\"build\"]\n" ~
-        "    },\n" ~
-        "    {\n" ~
-        "        \"label\": \"Test\",\n" ~
-        "        \"command\": \"make test\",\n" ~
-        "        \"use_new_terminal\": false,\n" ~
-        "        \"allow_concurrent_runs\": false,\n" ~
-        "        \"reveal\": \"always\",\n" ~
-        "        \"tags\": [\"test\"]\n" ~
-        "    },\n" ~
-        "    {\n" ~
-        "        \"label\": \"Run\",\n" ~
-        "        \"command\": \"make run\",\n" ~
-        "        \"use_new_terminal\": false,\n" ~
-        "        \"allow_concurrent_runs\": false,\n" ~
-        "        \"reveal\": \"always\"\n" ~
-        "    },\n" ~
-        "    {\n" ~
-        "        \"label\": \"Clean\",\n" ~
-        "        \"command\": \"make clean\",\n" ~
-        "        \"use_new_terminal\": false,\n" ~
-        "        \"allow_concurrent_runs\": false,\n" ~
-        "        \"reveal\": \"always\"\n" ~
-        "    }\n" ~
-        "]\n";
-    std.file.write(buildPath(targetPath, ".zed", "tasks.json"), zedTasks);
+    // Default to VS Code if neither is detected
+    if (!hasVSCode && !hasZed) hasVSCode = true;
+
+    if (hasZed && !hasVSCode) {
+        // Zed tasks
+        mkdirRecurse(buildPath(targetPath, ".zed"));
+        string zedTasks =
+            "[\n" ~
+            "    {\n" ~
+            "        \"label\": \"Build\",\n" ~
+            "        \"command\": \"make all\",\n" ~
+            "        \"use_new_terminal\": false,\n" ~
+            "        \"allow_concurrent_runs\": false,\n" ~
+            "        \"reveal\": \"always\",\n" ~
+            "        \"tags\": [\"build\"]\n" ~
+            "    },\n" ~
+            "    {\n" ~
+            "        \"label\": \"Build (Release)\",\n" ~
+            "        \"command\": \"make all RELEASE=1\",\n" ~
+            "        \"use_new_terminal\": false,\n" ~
+            "        \"allow_concurrent_runs\": false,\n" ~
+            "        \"reveal\": \"always\",\n" ~
+            "        \"tags\": [\"build\"]\n" ~
+            "    },\n" ~
+            "    {\n" ~
+            "        \"label\": \"Test\",\n" ~
+            "        \"command\": \"make test\",\n" ~
+            "        \"use_new_terminal\": false,\n" ~
+            "        \"allow_concurrent_runs\": false,\n" ~
+            "        \"reveal\": \"always\",\n" ~
+            "        \"tags\": [\"test\"]\n" ~
+            "    },\n" ~
+            "    {\n" ~
+            "        \"label\": \"Run\",\n" ~
+            "        \"command\": \"make run\",\n" ~
+            "        \"use_new_terminal\": false,\n" ~
+            "        \"allow_concurrent_runs\": false,\n" ~
+            "        \"reveal\": \"always\"\n" ~
+            "    },\n" ~
+            "    {\n" ~
+            "        \"label\": \"Clean\",\n" ~
+            "        \"command\": \"make clean\",\n" ~
+            "        \"use_new_terminal\": false,\n" ~
+            "        \"allow_concurrent_runs\": false,\n" ~
+            "        \"reveal\": \"always\"\n" ~
+            "    }\n" ~
+            "]\n";
+        std.file.write(buildPath(targetPath, ".zed", "tasks.json"), zedTasks);
+    } else {
+        // VS Code tasks (default)
+        mkdirRecurse(buildPath(targetPath, ".vscode"));
+        string vscodeTasks =
+            "{\n" ~
+            "    \"version\": \"2.0.0\",\n" ~
+            "    \"tasks\": [\n" ~
+            "        {\n" ~
+            "            \"label\": \"Build\",\n" ~
+            "            \"type\": \"shell\",\n" ~
+            "            \"command\": \"make all\",\n" ~
+            "            \"group\": { \"kind\": \"build\", \"isDefault\": true },\n" ~
+            "            \"problemMatcher\": \"$gcc\",\n" ~
+            "            \"presentation\": { \"reveal\": \"always\", \"panel\": \"shared\", \"clear\": true },\n" ~
+            "            \"detail\": \"Compile via Merlin (Debug)\"\n" ~
+            "        },\n" ~
+            "        {\n" ~
+            "            \"label\": \"Build (Release)\",\n" ~
+            "            \"type\": \"shell\",\n" ~
+            "            \"command\": \"make all RELEASE=1\",\n" ~
+            "            \"group\": \"build\",\n" ~
+            "            \"problemMatcher\": \"$gcc\",\n" ~
+            "            \"presentation\": { \"reveal\": \"always\", \"panel\": \"shared\", \"clear\": true },\n" ~
+            "            \"detail\": \"Compile via Merlin (Release, hardened)\"\n" ~
+            "        },\n" ~
+            "        {\n" ~
+            "            \"label\": \"Test\",\n" ~
+            "            \"type\": \"shell\",\n" ~
+            "            \"command\": \"make test\",\n" ~
+            "            \"group\": { \"kind\": \"test\", \"isDefault\": true },\n" ~
+            "            \"problemMatcher\": \"$gcc\",\n" ~
+            "            \"presentation\": { \"reveal\": \"always\", \"panel\": \"shared\", \"clear\": true },\n" ~
+            "            \"detail\": \"Build and run the sanitized test suite (ASan/UBSan)\"\n" ~
+            "        },\n" ~
+            "        {\n" ~
+            "            \"label\": \"Run\",\n" ~
+            "            \"type\": \"shell\",\n" ~
+            "            \"command\": \"make run\",\n" ~
+            "            \"group\": \"none\",\n" ~
+            "            \"problemMatcher\": [],\n" ~
+            "            \"presentation\": { \"reveal\": \"always\", \"panel\": \"shared\", \"clear\": true },\n" ~
+            "            \"detail\": \"Build and launch the target executable\"\n" ~
+            "        },\n" ~
+            "        {\n" ~
+            "            \"label\": \"Clean\",\n" ~
+            "            \"type\": \"shell\",\n" ~
+            "            \"command\": \"make clean\",\n" ~
+            "            \"group\": \"none\",\n" ~
+            "            \"problemMatcher\": [],\n" ~
+            "            \"presentation\": { \"reveal\": \"always\", \"panel\": \"shared\", \"clear\": true },\n" ~
+            "            \"detail\": \"Remove all build artifacts (bin/, obj/)\"\n" ~
+            "        }\n" ~
+            "    ]\n" ~
+            "}\n";
+        std.file.write(buildPath(targetPath, ".vscode", "tasks.json"), vscodeTasks);
+    }
 
     writefln("\033[1;32m[INIT] Created project '%s' at '%s'\033[0m", projectName, targetPath.length > 0 && targetPath != "." ? targetPath : getcwd());
 }
