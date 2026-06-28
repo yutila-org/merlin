@@ -211,7 +211,8 @@ jobs:
           for dir in release-assets/*/; do
             cp "$dir"* dist/
           done
-          chmod +x dist/merlin-linux-amd64 dist/merlin-darwin-arm64 || true
+          cp install.sh install.ps1 dist/
+          chmod +x dist/merlin-linux-amd64 dist/merlin-darwin-arm64 dist/merlin-linux-arm64 || true
           ls -la dist/
           echo "--- Binary format validation ---"
           file dist/* || true
