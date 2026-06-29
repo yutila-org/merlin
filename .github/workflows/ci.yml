@@ -18,7 +18,7 @@ jobs:
             artifact: merlin-linux-arm64
           - os: macos-latest
             artifact: merlin-darwin-arm64
-          - os: macos-13
+          - os: macos-latest
             artifact: merlin-darwin-amd64
           - os: windows-latest
             artifact: merlin-windows-amd64.exe
@@ -32,7 +32,13 @@ jobs:
           compiler: ldc-latest
 
       - name: Compile Code
-        run: make
+        shell: bash
+        run: |
+          if [ "${{ matrix.artifact }}" = "merlin-darwin-amd64" ]; then
+            make DC="ldc2 -mtriple=x86_64-apple-macos"
+          else
+            make
+          fi
 
       - name: Rename Binary (Unix)
         if: runner.os != 'Windows'
